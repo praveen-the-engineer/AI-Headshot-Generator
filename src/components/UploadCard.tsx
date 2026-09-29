@@ -1,0 +1,124 @@
+import { ImageIcon,AlertCircle } from "lucide-react";
+import type { uploadStatus } from "../types";
+import { useDropzone } from "react-dropzone";
+import { cn } from "../lib/utils";
+import { useState } from "react";
+import { uploadImageToCloudinary } from "../cloudinary/upload-direct";
+import { UploadWidget, type CloudinaryUploadResult } from "../cloudinary/UploadWidget";
+
+
+const ACCEPT = {
+    "image/jpeg": [".jpg", ".jpeg"],
+    "image/png": [".png"],
+    "image/webp": [".webp"]
+}
+
+interface UploadCardProps {
+    uploadStatus: uploadStatus;
+    uploadError: string | null;
+    onUploadError: (error: Error) => void;
+    onUploadStart: () => void;
+    onUploadSuccess: (result: CloudinaryUploadResult) => void;
+}
+
+export default function UploadCard({
+    uploadStatus,
+    uploadError,
+    onUploadError,
+    onUploadStart,
+    onUploadSuccess
+}: UploadCardProps) {
+    const [progress, setProgress] = useState(0);
+    const uploadFile = async (file: File) => {
+        onUploadStart();
+        setProgress(0);
+        try {
+            const result = await uploadImageToCloudinary(file, setProgress);
+            onUploadSuccess(result);
+        } catch (error) {
+            onUploadError(new Error("Upload Failed."));
+        }
+    };
+
+    const onDrop = (acceptedFiles: File[]) => {
+        if (acceptedFiles.length === 0) {
+            onUploadError(new Error("please upload a JPG , PNG , or WEBP image."));
+            return;
+        }
+
+        uploadFile(acceptedFiles[0]);
+    };
+
+    const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+        onDrop,
+        accept: ACCEPT,
+        maxFiles: 1,
+        multiple: false,
+        disabled: uploadStatus === "uploading",
+
+    });
+
+    const isUploading = uploadStatus === "uploading";
+
+    return (
+        <section id="upload" className="px-4 py-12">
+            <div className="mx-auto max-w-2xl">
+                <h2 className="mb-2 text-center text-2xl font-semibold">
+                    Upload Your Selfie
+                </h2>
+                <p className="mb-8 text-center text-white/60">
+                    Drag,Drop, or Click to Upload your Photo
+                </p>
+
+
+                <div
+                    {...getRootProps()}
+                    className={cn("glass-card relative flex cursor-pointer flex-col items-center gap-6 p-10 transition",
+                        isDragActive && "border-indigo-500/50 bg-indigo-500/10",
+                        isUploading && "pointer-events-none opacity-80",
+                    )}
+                >
+                    <input {...getInputProps()} />
+                    <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-500/20 text-indiago-400">
+                        <ImageIcon className="h-10 w-10" />
+                    </div>
+                    <div className="text-center">
+                        <p className="text-lg font-medium">Drag & Drop your selfie</p>
+                        <p className="mt-1 text-sm text-white/50">Or Click to browse JPG, PNG, or WEb</p>
+                    </div>
+
+                    {isUploading && (
+                        <div>
+                            <div>
+                                <div></div>
+                            </div>
+                            <p>Uploading...{progress > 0 ? `${progress}%` : ""}</p>
+                        </div>
+                    )}
+                    <div
+                        className="flex items-center gap-3"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                    >
+                        <UploadWidget
+                            onUploadSuccess={onUploadSuccess}
+                            onUploadError={onUploadError}
+                            buttonText="Browse files"
+                            className={cn(
+                                "inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 font-medium text-white",
+                                "transition hover:bg-indigo-500 disabled:cursor-wait disabled:opacity-70",
+                            )}
+                        />
+                    </div>
+
+                    {uploadError && (
+                        <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">
+                            <AlertCircle className="h-4 w-4 shrink-0" />
+                            {uploadError}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </section>
+    )
+} 
